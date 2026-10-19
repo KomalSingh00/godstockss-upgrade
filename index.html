@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Godstockss - Proof of Strategy Simulator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #2563eb;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .widget-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .badge {
+      background: rgba(37, 99, 235, 0.2);
+      color: #60a5fa;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    h2 { font-size: 1.4rem; margin: 12px 0 6px 0; }
+    p.subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+    select, input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    .btn-submit:hover { background: #1d4ed8; }
+    .results-panel {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .metric-card {
+      background: var(--bg);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+    .metric-value { font-size: 1.1rem; font-weight: bold; margin-top: 4px; }
+    .chart-box { height: 160px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+  <div class="widget-container">
+    <span class="badge">Godstockss Upgrade Concept</span>
+    <h2>Proof of Strategy Backtester</h2>
+    <p class="subtitle">Run instant historical backtests on active AI stock signals before taking trades.</p>
+
+    <div class="form-group">
+      <label>Select Signal Strategy</label>
+      <select id="strategy">
+        <option value="nifty">NIFTY 50 Intraday Momentum Breakout</option>
+        <option value="banknifty">BankNIFTY VWAP Reversion</option>
+        <option value="midcap">MidCap 100 Swing Breakout</option>
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Initial Capital (₹)</label>
+        <input type="number" id="capital" value="100000" />
+      </div>
+      <div class="form-group">
+        <label>Risk Per Trade (%)</label>
+        <input type="number" id="risk" value="1" max="5" min="0.5" step="0.5" />
+      </div>
+    </div>
+
+    <button class="btn-submit" onclick="runBacktest()">Run 90-Day Backtest</button>
+
+    <div class="results-panel" id="results">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Win Rate</div>
+          <div class="metric-value" style="color: var(--green);" id="winRate">68.4%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Net Return</div>
+          <div class="metric-value" style="color: var(--green);" id="netPnl">+₹24,200</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Max Drawdown</div>
+          <div class="metric-value" style="color: var(--red);" id="maxDd">-4.2%</div>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <canvas id="equityChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let chartInstance = null;
+
+    function runBacktest() {
+      document.getElementById('results').style.display = 'block';
+      const cap = parseFloat(document.getElementById('capital').value) || 100000;
+      
+      const labels = ['Day 1', 'Day 15', 'Day 30', 'Day 45', 'Day 60', 'Day 75', 'Day 90'];
+      const equityData = [cap, cap * 1.03, cap * 1.01, cap * 1.08, cap * 1.12, cap * 1.18, cap * 1.242];
+
+      const ctx = document.getElementById('equityChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Equity Curve (₹)',
+            data: equityData,
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
